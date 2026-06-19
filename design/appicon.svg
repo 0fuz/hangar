@@ -1,0 +1,10 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" rx="230" fill="#4F46E5"/>
+  <!-- hangar building (arched roof) -->
+  <path d="M 244 744 L 244 466 A 268 268 0 0 1 780 466 L 780 744 Z" fill="#FFFFFF"/>
+  <!-- open doorway (knockout to background) -->
+  <path d="M 372 744 L 372 566 A 140 140 0 0 1 652 566 L 652 744 Z" fill="#4F46E5"/>
+  <!-- terminal prompt >_ inside the doorway -->
+  <path d="M 446 600 L 492 642 L 446 684" fill="none" stroke="#FFFFFF" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="520" y="664" width="78" height="24" rx="12" fill="#FFFFFF"/>
+</svg>

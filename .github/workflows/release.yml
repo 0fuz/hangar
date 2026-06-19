@@ -1,0 +1,52 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app
+
+      - name: Build
+        run: |
+          cd Hangar
+          xcodebuild -scheme Hangar \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Ad-hoc sign
+        run: |
+          APP=Hangar/build/Build/Products/Release/Hangar.app
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --verbose "$APP"
+
+      - name: Create DMG
+        run: |
+          mkdir -p dist
+          cp -R Hangar/build/Build/Products/Release/Hangar.app dist/
+          hdiutil create -volname "Hangar" \
+            -srcfolder dist \
+            -ov -format UDZO \
+            Hangar.dmg
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: Hangar.dmg
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
