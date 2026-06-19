@@ -24,6 +24,17 @@ Hangar keeps them as a compact list in the menu bar. Flip a toggle to open iTerm
 - **Auto-start on login** — your pinned workflows come back after a restart
 - **Native macOS** — drives your real terminal via AppleScript; no bundled shell, no reinvented terminal
 
+## Why not just…?
+
+Hangar fills a narrow gap: a **glanceable, toggleable menu-bar list of pinned workflows with live status**. The usual alternatives are great at adjacent problems but don't quite do that:
+
+- **Shell aliases / a `.zshrc` zoo** — fast to run, but invisible. Nothing reminds you they exist, there's no on/off, and after a reboot you re-launch each one from memory. Hangar keeps them as a visible list you flip on, with auto-start on login.
+- **Raycast / Alfred** — excellent *fire-and-forget* launchers: they trigger a command and forget it. Hangar *holds* it — a persistent toggle with a live running dot that even notices when you close the window yourself.
+- **tmux / tmuxinator** — powerful session managers, but terminal-only and config-file driven. Hangar drives your *real* iTerm2 / Terminal windows (your profile, fonts, scrollback) and also launches GUI apps + opens a project in your IDE.
+- **iTerm2 arrangements / Shortcuts.app** — restore windows or run a script, but neither gives you a menu-bar surface with per-workflow status and group toggles.
+
+And it stays out of the way: native Swift/AppKit, no Electron, no embedded terminal, no dock icon, no account — just a menu-bar item. MIT-licensed and free.
+
 ## Build from source
 
 ```bash
