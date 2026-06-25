@@ -3,10 +3,13 @@
 A lightweight macOS menu bar app that turns your terminal workflows into one-click, toggleable snippets. No electron, no bloat — native Swift and AppKit.
 
 <p align="center">
-  <img src=".github/menu.png" width="45%" alt="Menu bar popover with grouped snippets, status dots, and per-group toggles">
+  <img src=".github/menu.png" width="45%" alt="Menu bar popover with grouped snippets, status dots, and per-snippet toggles">
 </p>
 <p align="center">
-  <img src=".github/settings.png" width="80%" alt="Snippet editor showing a terminal snippet with its command, status, and the grouped sidebar">
+  <img src=".github/settings.png" width="80%" alt="Snippet editor: a parameterized terminal command, the Parameters table, and the grouped sidebar">
+</p>
+<p align="center">
+  <img src=".github/params.png" width="55%" alt="Launch-time prompt asking for a snippet's parameters, with a live command preview">
 </p>
 
 ## Why?
