@@ -64,3 +64,7 @@ On first launch macOS asks to let Hangar **control** your terminal (Automation) 
 ## License
 
 MIT
+
+---
+
+<sub>Built with AI assistance and human review — every change is tested before release.</sub>
