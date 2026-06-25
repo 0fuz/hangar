@@ -19,6 +19,7 @@ Hangar keeps them as a compact list in the menu bar. Flip a toggle to open iTerm
 
 - **Menu bar app** — always accessible, no dock icon
 - **Terminal snippets** — open iTerm2 / Terminal and run a command with one toggle
+- **Command parameters** — put `{{name}}` placeholders in a command; Hangar asks for the values at launch (with a live preview) and remembers your last answers
 - **Application snippets** — launch an app, optionally opening a specific project or file with it (e.g. an IDE + a project folder)
 - **Groups** — organize snippets with dividers and flip a whole group with one toggle
 - **Auto-start on login** — your pinned workflows come back after a restart
@@ -34,6 +35,12 @@ Hangar fills a narrow gap: a **glanceable, toggleable menu-bar list of pinned wo
 - **iTerm2 arrangements / Shortcuts.app** — restore windows or run a script, but neither gives you a menu-bar surface with per-workflow status and group toggles.
 
 And it stays out of the way: native Swift/AppKit, no Electron, no embedded terminal, no dock icon, no account — just a menu-bar item. MIT-licensed and free.
+
+## Install
+
+Download the latest **`Hangar.dmg`** from the [Releases](https://github.com/0fuz/hangar/releases/latest) page, open it, and drag **Hangar** into **Applications**.
+
+The app is ad-hoc signed (not notarized), so on first launch macOS may say it can't verify the developer — right-click the app → **Open**, then confirm. You only need to do this once.
 
 ## Build from source
 
