@@ -8,6 +8,14 @@ private let logger = Logger(
     category: "SnippetManager"
 )
 
+/// Relays NSTextField edits to a closure so the parameter prompt can live-update
+/// its command preview as the user types.
+private final class TextChangeWatcher: NSObject, NSTextFieldDelegate {
+    private let onChange: () -> Void
+    init(onChange: @escaping () -> Void) { self.onChange = onChange }
+    func controlTextDidChange(_ obj: Notification) { onChange() }
+}
+
 /// Drives the real terminal apps via AppleScript. Static / nonisolated so the
 /// (blocking) osascript call runs off the main actor.
 enum Terminals {
@@ -197,16 +205,24 @@ final class SnippetManager {
     }
 
     func launch(_ snippet: Snippet) {
-        runningIDs.insert(snippet.id) // optimistic, immediate UI feedback
         let id = snippet.id
         switch snippet.action {
-        case .terminal(let t):
+        case .terminal(var t):
+            // Parameterized? Ask for values first; cancelling aborts the launch
+            // (so we don't flip the toggle on for a command that never ran).
+            if !t.params.isEmpty {
+                guard let values = promptForParams(snippetName: snippet.name, snippetID: id, launch: t) else { return }
+                t.command = t.resolvedCommand(with: values)
+            }
+            runningIDs.insert(id) // optimistic, immediate UI feedback
+            let launchT = t
             Task {
                 // Run the blocking osascript off-main, then store the handle on main.
-                let handle = await Task.detached { Terminals.launch(t) }.value
+                let handle = await Task.detached { Terminals.launch(launchT) }.value
                 if let handle { self.handles[id] = handle }
             }
         case .app(let a):
+            runningIDs.insert(id) // optimistic, immediate UI feedback
             let bundleID = a.bundleIdentifier
             let openPath = a.openPath
             Task.detached {
@@ -250,8 +266,13 @@ final class SnippetManager {
             launch(snippet)
             return
         }
-        let cmd = t.command, term = t.terminal
-        Task.detached { Terminals.rerun(handle: handle, command: cmd, terminal: term) }
+        var cmd = t.command
+        if !t.params.isEmpty {
+            guard let values = promptForParams(snippetName: snippet.name, snippetID: snippet.id, launch: t) else { return }
+            cmd = t.resolvedCommand(with: values)
+        }
+        let finalCmd = cmd, term = t.terminal
+        Task.detached { Terminals.rerun(handle: handle, command: finalCmd, terminal: term) }
     }
 
     /// Focus: bring the running window / app to the front. No-op when stopped.
@@ -268,6 +289,80 @@ final class SnippetManager {
                 NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first?.activate()
             }
         }
+    }
+
+    // MARK: - Parameter prompt
+
+    private func paramKey(_ snippetID: UUID, _ name: String) -> String {
+        "param.\(snippetID.uuidString).\(name)"
+    }
+
+    /// Ask the user to fill a snippet's `{{name}}` parameters before it runs.
+    /// The dialog names the snippet and shows a live preview of the exact command
+    /// that will run. Returns the entered values, or nil if the user cancelled.
+    /// Fields pre-fill with the last-entered value (else the default) and are
+    /// remembered for next time.
+    private func promptForParams(snippetName: String, snippetID: UUID, launch: TerminalLaunch) -> [String: String]? {
+        let params = launch.params
+        guard !params.isEmpty else { return [:] }
+
+        let alert = NSAlert()
+        let title = snippetName.isEmpty ? "Run snippet" : "Run “\(snippetName)”"
+        alert.messageText = "\(title) in \(launch.terminal.displayName)"
+        alert.informativeText = "Fill in the values — the preview below is the exact command that will run."
+        alert.addButton(withTitle: "Run")
+        alert.addButton(withTitle: "Cancel")
+
+        let labelW: CGFloat = 90, gap: CGFloat = 8, fieldW: CGFloat = 240, rowH: CGFloat = 28
+        let width = labelW + gap + fieldW
+        let previewH: CGFloat = 48
+        let height = previewH + CGFloat(params.count) * rowH
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
+
+        var fields: [NSTextField] = []
+        for (i, p) in params.enumerated() {
+            let y = height - CGFloat(i + 1) * rowH   // fields stacked above the preview
+            let label = NSTextField(labelWithString: p.promptLabel + ":")
+            label.frame = NSRect(x: 0, y: y + 4, width: labelW, height: 18)
+            label.alignment = .right
+            let field = NSTextField(frame: NSRect(x: labelW + gap, y: y, width: fieldW, height: 22))
+            field.stringValue = UserDefaults.standard.string(forKey: paramKey(snippetID, p.name)) ?? p.defaultValue
+            field.placeholderString = p.defaultValue.isEmpty ? p.name : p.defaultValue
+            container.addSubview(label)
+            container.addSubview(field)
+            fields.append(field)
+        }
+
+        // Live preview of the resolved command, refreshed as the user types.
+        let preview = NSTextField(wrappingLabelWithString: "")
+        preview.frame = NSRect(x: 0, y: 0, width: width, height: previewH - 4)
+        preview.font = .monospacedSystemFont(ofSize: 11, weight: .regular)
+        preview.textColor = .secondaryLabelColor
+        preview.maximumNumberOfLines = 3
+        container.addSubview(preview)
+
+        let refresh = {
+            var vals: [String: String] = [:]
+            for (i, p) in params.enumerated() { vals[p.name] = fields[i].stringValue }
+            preview.stringValue = "$ " + launch.resolvedCommand(with: vals)
+        }
+        let watcher = TextChangeWatcher(onChange: refresh)
+        fields.forEach { $0.delegate = watcher }
+        refresh()
+
+        alert.accessoryView = container
+        NSApp.activate(ignoringOtherApps: true)
+        if let first = fields.first { alert.window.initialFirstResponder = first }
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+
+        var values: [String: String] = [:]
+        for (i, p) in params.enumerated() {
+            let v = fields[i].stringValue
+            values[p.name] = v
+            UserDefaults.standard.set(v, forKey: paramKey(snippetID, p.name))
+        }
+        return values
     }
 
     /// Reconcile optimistic state against the terminal's actual open windows (and

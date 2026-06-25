@@ -13,15 +13,59 @@ enum TerminalApp: String, Codable, Hashable, CaseIterable {
     }
 }
 
+/// A `{{name}}` placeholder in a terminal command. The user is asked to fill it
+/// in each time the snippet launches. `label` is what the prompt asks (falls back
+/// to `name`); `defaultValue` pre-fills the field.
+struct CommandParam: Codable, Hashable, Identifiable {
+    var id: UUID
+    var name: String
+    var label: String
+    var defaultValue: String
+
+    init(id: UUID = UUID(), name: String = "", label: String = "", defaultValue: String = "") {
+        self.id = id
+        self.name = name
+        self.label = label
+        self.defaultValue = defaultValue
+    }
+
+    /// What the launch prompt shows for this field.
+    var promptLabel: String { label.isEmpty ? name : label }
+}
+
 /// A terminal workflow: open `terminal` and run `command`. The command is the
-/// full line the user types, e.g. "cd ~/code/project && npm run b".
+/// full line the user types, e.g. "cd ~/code/project && npm run b". It may contain
+/// `{{name}}` placeholders described by `params`, filled in at launch.
 struct TerminalLaunch: Codable, Hashable {
     var terminal: TerminalApp
     var command: String
+    var params: [CommandParam]
 
-    init(terminal: TerminalApp = .iTerm2, command: String = "") {
+    init(terminal: TerminalApp = .iTerm2, command: String = "", params: [CommandParam] = []) {
         self.terminal = terminal
         self.command = command
+        self.params = params
+    }
+
+    private enum CodingKeys: String, CodingKey { case terminal, command, params }
+
+    // Custom decode so snippets saved before parameters existed still load.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.terminal = try c.decode(TerminalApp.self, forKey: .terminal)
+        self.command = try c.decode(String.self, forKey: .command)
+        self.params = try c.decodeIfPresent([CommandParam].self, forKey: .params) ?? []
+    }
+
+    /// The command with each `{{name}}` replaced by the entered value (falling
+    /// back to the param's default when nothing was entered).
+    func resolvedCommand(with values: [String: String]) -> String {
+        var result = command
+        for p in params {
+            let v = values[p.name] ?? p.defaultValue
+            result = result.replacingOccurrences(of: "{{\(p.name)}}", with: v)
+        }
+        return result
     }
 }
 
@@ -52,17 +96,32 @@ struct Snippet: Identifiable, Codable, Hashable {
     var name: String
     var action: SnippetAction
     var autoStart: Bool   // activate on launch (so a restart doesn't lose it)
+    var showRerun: Bool   // show this snippet's ↻ Run-again button
 
     init(
         id: UUID = UUID(),
         name: String = "",
         action: SnippetAction = .terminal(TerminalLaunch()),
-        autoStart: Bool = false
+        autoStart: Bool = false,
+        showRerun: Bool = true
     ) {
         self.id = id
         self.name = name
         self.action = action
         self.autoStart = autoStart
+        self.showRerun = showRerun
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, name, action, autoStart, showRerun }
+
+    // Custom decode so snippets saved before these fields existed still load.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(UUID.self, forKey: .id)
+        self.name = try c.decode(String.self, forKey: .name)
+        self.action = try c.decode(SnippetAction.self, forKey: .action)
+        self.autoStart = try c.decodeIfPresent(Bool.self, forKey: .autoStart) ?? false
+        self.showRerun = try c.decodeIfPresent(Bool.self, forKey: .showRerun) ?? true
     }
 
     /// The terminal payload, if this is a terminal snippet.

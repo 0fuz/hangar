@@ -84,12 +84,14 @@ struct SnippetMenuItem: View {
 
             Spacer(minLength: 8)
 
-            Button { manager.rerun(snippet) } label: {
-                Image(systemName: "arrow.clockwise")
+            if snippet.showRerun {
+                Button { manager.rerun(snippet) } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .help("Run again — re-runs the command in the same window")
             }
-            .buttonStyle(.borderless)
-            .foregroundStyle(.secondary)
-            .help("Run again — re-runs the command in the same window")
 
             Button { manager.focus(snippet) } label: {
                 Image(systemName: "scope")

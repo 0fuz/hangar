@@ -53,11 +53,13 @@ struct SnippetDetailView: View {
 
                     Spacer()
 
-                    Button {
-                        if hasChanges { save() }
-                        manager.rerun(editedSnippet)
-                    } label: { Image(systemName: "arrow.clockwise") }
-                        .help("Run again — re-runs the command in the same window")
+                    if editedSnippet.showRerun {
+                        Button {
+                            if hasChanges { save() }
+                            manager.rerun(editedSnippet)
+                        } label: { Image(systemName: "arrow.clockwise") }
+                            .help("Run again — re-runs the command in the same window")
+                    }
 
                     Button {
                         manager.focus(editedSnippet)
@@ -105,15 +107,68 @@ struct SnippetDetailView: View {
                             Spacer()
                             Button("Folder…") { chooseFolder() }
                         }
-                        TextField("npm run b", text: terminal.command)
+                        TextField("npm run dev", text: terminal.command, axis: .vertical)
                             .textFieldStyle(.roundedBorder)
                             .labelsHidden()
+                            .lineLimit(3...12)
+                            .frame(minHeight: 56, alignment: .top)
                             .focused($focusedField, equals: .command)
                     }
 
-                    Text("Opens \(terminal.wrappedValue.terminal.displayName) and runs this command. Folder… prepends a `cd`, or type the full line yourself.")
+                    Text("Opens \(terminal.wrappedValue.terminal.displayName) and runs this command. Use Folder… to prepend a `cd`, and `{{name}}` placeholders for values filled in at launch.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Parameters").font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Button { addParam() } label: { Image(systemName: "plus") }
+                                .help("Add a parameter — reference it as {{name}} in the command")
+                        }
+
+                        if terminal.wrappedValue.params.isEmpty {
+                            Text("None. Add one and reference it as `{{name}}` in the command — Hangar asks for its value each time you launch.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            HStack(spacing: 6) {
+                                Text("{{name}}").frame(width: 110, alignment: .leading)
+                                Text("Prompt label").frame(maxWidth: .infinity, alignment: .leading)
+                                Text("Default").frame(width: 110, alignment: .leading)
+                                Spacer().frame(width: 84)
+                            }
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+
+                            ForEach(terminal.params) { $param in
+                                HStack(spacing: 6) {
+                                    TextField("name", text: $param.name)
+                                        .labelsHidden()
+                                        .frame(width: 110)
+                                    TextField("label (optional)", text: $param.label)
+                                        .labelsHidden()
+                                        .frame(maxWidth: .infinity)
+                                    TextField("value", text: $param.defaultValue)
+                                        .labelsHidden()
+                                        .frame(width: 110)
+                                    HStack(spacing: 2) {
+                                        Button { moveParam(id: param.id, by: -1) } label: { Image(systemName: "chevron.up") }
+                                            .disabled(isFirstParam(param.id))
+                                            .help("Move up")
+                                        Button { moveParam(id: param.id, by: 1) } label: { Image(systemName: "chevron.down") }
+                                            .disabled(isLastParam(param.id))
+                                            .help("Move down")
+                                        Button(role: .destructive) { removeParam(id: param.id) } label: { Image(systemName: "minus.circle") }
+                                            .help("Remove")
+                                    }
+                                    .frame(width: 84, alignment: .trailing)
+                                }
+                                .textFieldStyle(.roundedBorder)
+                                .buttonStyle(.borderless)
+                            }
+                        }
+                    }
 
                 case .app:
                     LabeledContent("Application") {
@@ -147,6 +202,9 @@ struct SnippetDetailView: View {
 
             Section {
                 Toggle("Auto-start when Hangar launches", isOn: $editedSnippet.autoStart)
+                Toggle("Show the Run-again (↻) button", isOn: $editedSnippet.showRerun)
+            } header: {
+                Text("Behavior")
             }
         }
         .formStyle(.grouped)
@@ -205,6 +263,32 @@ struct SnippetDetailView: View {
         let safe = url.path.replacingOccurrences(of: "'", with: "'\\''")
         terminal.wrappedValue.command = "cd '\(safe)' && " + cmd
     }
+
+    // MARK: - Parameter rows
+
+    private func addParam() {
+        var t = terminal.wrappedValue
+        t.params.append(CommandParam())
+        terminal.wrappedValue = t
+    }
+
+    private func removeParam(id: UUID) {
+        var t = terminal.wrappedValue
+        t.params.removeAll { $0.id == id }
+        terminal.wrappedValue = t
+    }
+
+    private func moveParam(id: UUID, by delta: Int) {
+        var t = terminal.wrappedValue
+        guard let i = t.params.firstIndex(where: { $0.id == id }) else { return }
+        let j = i + delta
+        guard j >= 0, j < t.params.count else { return }
+        t.params.swapAt(i, j)
+        terminal.wrappedValue = t
+    }
+
+    private func isFirstParam(_ id: UUID) -> Bool { terminal.wrappedValue.params.first?.id == id }
+    private func isLastParam(_ id: UUID) -> Bool { terminal.wrappedValue.params.last?.id == id }
 }
 
 #Preview {
