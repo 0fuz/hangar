@@ -36,12 +36,11 @@ jobs:
 
       - name: Create DMG
         run: |
-          mkdir -p dist
-          cp -R Hangar/build/Build/Products/Release/Hangar.app dist/
-          hdiutil create -volname "Hangar" \
-            -srcfolder dist \
-            -ov -format UDZO \
-            Hangar.dmg
+          python3 -m venv .dmgvenv
+          .dmgvenv/bin/pip install --quiet dmgbuild
+          DMG_APP="Hangar/build/Build/Products/Release/Hangar.app" \
+          DMG_BACKGROUND="$PWD/packaging/dmg-background.tiff" \
+            .dmgvenv/bin/dmgbuild -s packaging/dmg_settings.py "Hangar" Hangar.dmg
 
       - name: Upload Release
         uses: softprops/action-gh-release@v1
